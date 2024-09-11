@@ -18,10 +18,9 @@ public class ReservationRepository implements Repository<Reservation, Integer> {
     private static ReservationRepository instance;
 
     private ReservationRepository() {
-        // Initialisation si nécessaire
+
     }
 
-    // Singleton Pattern
     public static synchronized ReservationRepository getInstance() {
         if (instance == null) {
             instance = new ReservationRepository();
@@ -81,7 +80,7 @@ public class ReservationRepository implements Repository<Reservation, Integer> {
         }
         return reservations;
     }
-    // Méthode pour trouver les réservations par ID de client
+
     public List<Reservation> findByCustomerId(int customerId) {
         List<Reservation> reservations = new ArrayList<>();
         String sql = "SELECT * FROM reservations WHERE customer_id = ?";
@@ -94,8 +93,8 @@ public class ReservationRepository implements Repository<Reservation, Integer> {
             while (rs.next()) {
                 Reservation reservation = new Reservation(
                         rs.getInt("id"),
-                        getCustomerById(rs.getInt("customer_id")), // Méthode à implémenter
-                        getRoomById(rs.getInt("room_id")),         // Méthode à implémenter
+                        getCustomerById(rs.getInt("customer_id")),
+                        getRoomById(rs.getInt("room_id")),
                         rs.getDate("check_in_date").toLocalDate(),
                         rs.getDate("check_out_date").toLocalDate(),
                         BookingStatus.valueOf(rs.getString("status"))
@@ -120,8 +119,8 @@ public class ReservationRepository implements Repository<Reservation, Integer> {
             if (rs.next()) {
                 Reservation reservation = new Reservation(
                         rs.getInt("id"),
-                        getCustomerById(rs.getInt("customer_id")), // Méthode à implémenter
-                        getRoomById(rs.getInt("room_id")),         // Méthode à implémenter
+                        getCustomerById(rs.getInt("customer_id")),
+                        getRoomById(rs.getInt("room_id")),
                         rs.getDate("check_in_date").toLocalDate(),
                         rs.getDate("check_out_date").toLocalDate(),
                         BookingStatus.valueOf(rs.getString("status"))
@@ -209,7 +208,7 @@ public class ReservationRepository implements Repository<Reservation, Integer> {
                         rs.getInt("id"),
                         RoomType.valueOf(rs.getString("type")), // Assurez-vous que RoomType est bien géré
                         rs.getDouble("price"),
-                        rs.getBoolean("available")
+                        rs.getBoolean("is_available")
                 );
             }
         } catch (SQLException e) {

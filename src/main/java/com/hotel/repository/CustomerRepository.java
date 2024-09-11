@@ -3,132 +3,84 @@ package com.hotel.repository;
 import com.hotel.config.DatabaseConfig;
 import com.hotel.model.Customer;
 
-import java.sql.*;
-import java.util.ArrayList;
-import java.util.List;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Optional;
 
-public class CustomerRepository implements Repository<Customer, Integer> {
+public class CustomerRepository {
+    private final DatabaseConfig dbConnection;
 
-    private static CustomerRepository instance;
-
-    private CustomerRepository() {
-        // Initialisation si nécessaire
+    public CustomerRepository() {
+        this.dbConnection = new DatabaseConfig();
     }
 
-    // Singleton Pattern
-    public static synchronized CustomerRepository getInstance() {
-        if (instance == null) {
-            instance = new CustomerRepository();
-        }
-        return instance;
-    }
+    // Ajouter un client dans la base de données
+    public void save(Customer customer) {
+        String query = "INSERT INTO customers (id, name, email, phone_number) VALUES (?, ?, ?, ?)";
 
-    @Override
-    public Customer save(Customer customer) {
-        String sql = "INSERT INTO customers (name, email, phone_number) " +
-                "VALUES (?, ?, ?) " +
-                "ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, phone_number = EXCLUDED.phone_number " +
-                "RETURNING id";
-        try (Connection conn = DriverManager.getConnection(DatabaseConfig.getUrl(), DatabaseConfig.getUsername(), DatabaseConfig.getPassword());
-             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-
-            pstmt.setString(1, customer.getName());
-            pstmt.setString(2, customer.getEmail());
-            pstmt.setString(3, customer.getPhoneNumber());
-
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                int id = rs.getInt("id");
-                return new Customer(id, customer.getName(), customer.getEmail(), customer.getPhoneNumber());
-            }
+        try (Connection conn = dbConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setInt(1, customer.getId());
+            stmt.setString(2, customer.getName());
+            stmt.setString(3, customer.getEmail());
+            stmt.setString(4, customer.getPhoneNumber());
+            stmt.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            System.err.println("Erreur lors de l'insertion du client : " + e.getMessage());
         }
-        return null;
     }
 
-    @Override
-    public Optional<Customer> findById(Integer id) {
-        String sql = "SELECT * FROM customers WHERE id = ?";
-        try (Connection conn = DriverManager.getConnection(DatabaseConfig.getUrl(), DatabaseConfig.getUsername(), DatabaseConfig.getPassword());
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            pstmt.setInt(1, id);
-            ResultSet rs = pstmt.executeQuery();
+    // Récupérer un client par son ID
+    public Optional<Customer> findById(int customerId) {
+        String query = "SELECT * FROM customers WHERE id = ?";
+        try (Connection conn = dbConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setInt(1, customerId);
+            ResultSet rs = stmt.executeQuery();
 
             if (rs.next()) {
                 Customer customer = new Customer(
                         rs.getInt("id"),
                         rs.getString("name"),
                         rs.getString("email"),
-                        rs.getString("phone_number")
+                        rs.getString("phone")
                 );
                 return Optional.of(customer);
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            System.err.println("Erreur lors de la récupération du client : " + e.getMessage());
         }
         return Optional.empty();
     }
 
-    @Override
-    public List<Customer> findAll() {
-        List<Customer> customers = new ArrayList<>();
-        String sql = "SELECT * FROM customers";
-        try (Connection conn = DriverManager.getConnection(DatabaseConfig.getUrl(), DatabaseConfig.getUsername(), DatabaseConfig.getPassword());
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+    // Mettre à jour un client
+    public void update(Customer customer) {
+        String query = "UPDATE customers SET name = ?, email = ?, phone_number = ? WHERE id = ?";
 
-            while (rs.next()) {
-                Customer customer = new Customer(
-                        rs.getInt("id"),
-                        rs.getString("name"),
-                        rs.getString("email"),
-                        rs.getString("phone_number")
-                );
-                customers.add(customer);
-            }
+        try (Connection conn = dbConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setString(1, customer.getName());
+            stmt.setString(2, customer.getEmail());
+            stmt.setString(3, customer.getPhoneNumber());
+            stmt.setInt(4, customer.getId());
+            stmt.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return customers;
-    }
-
-    @Override
-    public void deleteById(Integer id) {
-        String sql = "DELETE FROM customers WHERE id = ?";
-        try (Connection conn = DriverManager.getConnection(DatabaseConfig.getUrl(), DatabaseConfig.getUsername(), DatabaseConfig.getPassword());
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            pstmt.setInt(1, id);
-            pstmt.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
+            System.err.println("Erreur lors de la mise à jour du client : " + e.getMessage());
         }
     }
 
-    // Méthode pour trouver un client par email
-    public Optional<Customer> findByEmail(String email) {
-        String sql = "SELECT * FROM customers WHERE email = ?";
-        try (Connection conn = DriverManager.getConnection(DatabaseConfig.getUrl(), DatabaseConfig.getUsername(), DatabaseConfig.getPassword());
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+    // Supprimer un client
+    public void delete(int customerId) {
+        String query = "DELETE FROM customers WHERE id = ?";
 
-            pstmt.setString(1, email);
-            ResultSet rs = pstmt.executeQuery();
-
-            if (rs.next()) {
-                Customer customer = new Customer(
-                        rs.getInt("id"),
-                        rs.getString("name"),
-                        rs.getString("email"),
-                        rs.getString("phone_number")
-                );
-                return Optional.of(customer);
-            }
+        try (Connection conn = dbConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setInt(1, customerId);
+            stmt.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            System.err.println("Erreur lors de la suppression du client : " + e.getMessage());
         }
-        return Optional.empty();
     }
 }

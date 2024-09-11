@@ -23,13 +23,7 @@ public class Main {
     private static final Scanner scanner = new Scanner(System.in);
 
     public static void main(String[] args) {
-        initializeRooms(); // Initialisation des chambres
-        Customer currentCustomer = authenticate();
-        if (currentCustomer == null) {
-            System.out.println("Échec de l'authentification. Fin du programme.");
-            return;
-        }
-
+        initializeRooms();
         boolean exit = false;
         while (!exit) {
             showMenu();
@@ -70,40 +64,24 @@ public class Main {
         System.out.println("5. Afficher les Statistiques");
         System.out.println("6. Quitter");
     }
-    private static Customer authenticate() {
-        System.out.println("\n--- Authentification du Client ---");
-        String email = readString("Email du client : ");
-
-        CustomerService customerService = new CustomerService();
-        Optional<Customer> customerOpt = customerService.authenticate(email);
-
-        if (customerOpt.isPresent()) {
-            Customer customer = customerOpt.get();
-            System.out.println("Client authentifié : " + customer);
-
-            // Afficher les réservations du client
-            List<Reservation> reservations = reservationService.findReservationsByCustomerId(customer.getId());
-            if (reservations.isEmpty()) {
-                System.out.println("Aucune réservation trouvée pour ce client.");
-            } else {
-                reservations.forEach(System.out::println);
-            }
-        } else {
-            System.out.println("Client non trouvé avec l'email fourni.");
-
-        }
-        return null;
-    }
-
     private static void createReservation() {
         System.out.println("\n--- Créer une Nouvelle Réservation ---");
-        int reservationId = readInt("ID de la réservation : ");
-        int customerId = readInt("ID du client : ");
-        String customerName = readString("Nom du client : ");
-        String customerEmail = readString("Email du client : ");
-        String customerPhone = readString("Téléphone du client : ");
 
-        Customer customer = new Customer(customerId, customerName, customerEmail, customerPhone);
+        int customerId = readInt("ID du client : ");
+        Optional<Customer> existingCustomer = customerService.getById(customerId);
+
+        Customer customer;
+        if (!existingCustomer.isPresent()) {
+            String customerName = readString("Nom du client : ");
+            String customerEmail = readString("Email du client : ");
+            String customerPhone = readString("Téléphone du client : ");
+
+            customer = new Customer(customerId, customerName, customerEmail, customerPhone);
+            customerService.create(customer);  // Créer le client dans la base de données
+            System.out.println("Nouveau client créé.");
+        } else {
+            customer = existingCustomer.get();  // Utiliser le client existant
+        }
 
         int roomId = readInt("ID de la chambre : ");
         Optional<Room> roomOpt = roomService.getById(roomId);
@@ -131,14 +109,8 @@ public class Main {
             System.out.println("Plage de dates invalide.");
             return;
         }
-//
-//        // Vérifier la disponibilité de la chambre
-//        if (!reservationService.isRoomAvailable(roomId, checkInDate, checkOutDate)) {
-//            System.out.println("La chambre n'est pas disponible pour les dates sélectionnées.");
-//            return;
-//        }
 
-        Reservation reservation = new Reservation(reservationId, customer, room, checkInDate, checkOutDate, BookingStatus.ACTIVE);
+        Reservation reservation = new Reservation(customerId, customer, room, checkInDate, checkOutDate, BookingStatus.ACTIVE);
         try {
             reservationService.create(reservation);
             System.out.println("Réservation créée avec succès.");
@@ -146,6 +118,7 @@ public class Main {
             System.out.println("Erreur lors de la création de la réservation : " + e.getMessage());
         }
     }
+
 
     private static void modifyReservation() {
         System.out.println("\n--- Modifier une Réservation ---");
@@ -213,7 +186,6 @@ public class Main {
         System.out.println("Nombre de réservations annulées : " + cancelledReservations);
     }
 
-    // Méthodes auxiliaires pour lire les entrées utilisateur
     private static int readInt(String prompt) {
         System.out.print(prompt);
         while (!scanner.hasNextInt()) {
@@ -221,7 +193,7 @@ public class Main {
             scanner.next();
         }
         int value = scanner.nextInt();
-        scanner.nextLine(); // Consommer le saut de ligne
+        scanner.nextLine();
         return value;
     }
 
@@ -230,7 +202,7 @@ public class Main {
         return scanner.nextLine();
     }
 
-    // Méthode d'initialisation des chambres
+
     private static void initializeRooms() {
         Room room1 = new Room(1, RoomType.SIMPLE, 100.0, true);
         Room room2 = new Room(2, RoomType.DOUBLE, 150.0, true);

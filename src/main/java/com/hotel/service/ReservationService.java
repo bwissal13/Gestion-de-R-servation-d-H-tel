@@ -18,7 +18,7 @@ public class ReservationService implements Service<Reservation, Integer> {
 
     @Override
     public Reservation create(Reservation reservation) {
-        // Validation des dates
+
         if (!ValidationUtils.isValidDateRange(reservation.getCheckInDate(), reservation.getCheckOutDate())) {
             throw new IllegalArgumentException("La plage de dates est invalide.");
         }
