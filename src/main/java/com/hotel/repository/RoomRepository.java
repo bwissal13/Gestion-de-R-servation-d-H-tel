@@ -8,34 +8,29 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-public class RoomRepository implements Repository<Room, Integer> {
+public class RoomRepository {
 
-    private static RoomRepository instance;
+    private final DatabaseConfig databaseConfig;
 
-    private RoomRepository() {
-        // Initialisation si nécessaire
+    // Constructor to inject DatabaseConfig dependency
+    public RoomRepository(DatabaseConfig databaseConfig) {
+        this.databaseConfig = databaseConfig;
     }
 
-    // Singleton Pattern
-    public static synchronized RoomRepository getInstance() {
-        if (instance == null) {
-            instance = new RoomRepository();
-        }
-        return instance;
-    }
-
-    @Override
+    // Method to save or update a room
     public Room save(Room room) {
         String sql = "INSERT INTO rooms (id, type, price, is_available) VALUES (?, ?, ?, ?) " +
                 "ON CONFLICT (id) DO UPDATE SET type = ?, price = ?, is_available = ?";
-        try (Connection conn = DriverManager.getConnection(DatabaseConfig.getUrl(), DatabaseConfig.getUsername(), DatabaseConfig.getPassword());
+        try (Connection conn = databaseConfig.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
+            // Insert or update room details
             pstmt.setInt(1, room.getId());
             pstmt.setString(2, room.getType().name());
             pstmt.setDouble(3, room.getPrice());
             pstmt.setBoolean(4, room.isAvailable());
 
+            // Update section
             pstmt.setString(5, room.getType().name());
             pstmt.setDouble(6, room.getPrice());
             pstmt.setBoolean(7, room.isAvailable());
@@ -47,10 +42,10 @@ public class RoomRepository implements Repository<Room, Integer> {
         return room;
     }
 
-    @Override
+    // Method to find a room by its ID
     public Optional<Room> findById(Integer id) {
         String sql = "SELECT * FROM rooms WHERE id = ?";
-        try (Connection conn = DriverManager.getConnection(DatabaseConfig.getUrl(), DatabaseConfig.getUsername(), DatabaseConfig.getPassword());
+        try (Connection conn = databaseConfig.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setInt(1, id);
@@ -72,11 +67,11 @@ public class RoomRepository implements Repository<Room, Integer> {
         return Optional.empty();
     }
 
-    @Override
+    // Method to retrieve all rooms
     public List<Room> findAll() {
         List<Room> rooms = new ArrayList<>();
         String sql = "SELECT * FROM rooms";
-        try (Connection conn = DriverManager.getConnection(DatabaseConfig.getUrl(), DatabaseConfig.getUsername(), DatabaseConfig.getPassword());
+        try (Connection conn = databaseConfig.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
 
@@ -96,10 +91,10 @@ public class RoomRepository implements Repository<Room, Integer> {
         return rooms;
     }
 
-    @Override
+    // Method to delete a room by its ID
     public void deleteById(Integer id) {
         String sql = "DELETE FROM rooms WHERE id = ?";
-        try (Connection conn = DriverManager.getConnection(DatabaseConfig.getUrl(), DatabaseConfig.getUsername(), DatabaseConfig.getPassword());
+        try (Connection conn = databaseConfig.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setInt(1, id);

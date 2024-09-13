@@ -6,39 +6,39 @@ import com.hotel.repository.RoomRepository;
 import java.util.List;
 import java.util.Optional;
 
-public class RoomService implements Service<Room, Integer> {
+public class RoomService {
 
-    private final RoomRepository roomRepository = RoomRepository.getInstance();
+    private final RoomRepository roomRepository;
 
-    @Override
+    // Constructor injection for RoomRepository
+    public RoomService(RoomRepository roomRepository) {
+        this.roomRepository = roomRepository;
+    }
+
     public Room create(Room room) {
         return roomRepository.save(room);
     }
 
-    @Override
     public Optional<Room> getById(Integer id) {
         return roomRepository.findById(id);
     }
 
-    @Override
     public List<Room> getAll() {
         return roomRepository.findAll();
     }
 
-    @Override
     public Room update(Room room) {
         return roomRepository.save(room);
     }
 
-    @Override
     public void delete(Integer id) {
         roomRepository.deleteById(id);
     }
 
-    // Méthode supplémentaire pour vérifier la disponibilité
+    // Additional method to check room availability (logic needs to be implemented)
     public boolean isRoomAvailable(int roomId, String checkIn, String checkOut) {
-        // Implémenter la logique pour vérifier la disponibilité de la chambre
-        // Par exemple, en vérifiant les réservations existantes
-        return false; // Remplacer par l'implémentation réelle
+        // Implement the logic to check room availability
+        // For example, by checking existing reservations
+        return false; // Replace with actual implementation
     }
 }

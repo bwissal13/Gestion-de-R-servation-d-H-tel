@@ -1,11 +1,15 @@
 package com.hotel;
 
+import com.hotel.config.DatabaseConfig;
 import com.hotel.enums.BookingStatus;
 import com.hotel.enums.RoomType;
 import com.hotel.exceptions.ReservationNotFoundException;
 import com.hotel.model.Customer;
 import com.hotel.model.Reservation;
 import com.hotel.model.Room;
+import com.hotel.repository.CustomerRepository;
+import com.hotel.repository.ReservationRepository;
+import com.hotel.repository.RoomRepository;
 import com.hotel.service.CustomerService;
 import com.hotel.service.ReservationService;
 import com.hotel.service.RoomService;
@@ -17,13 +21,21 @@ import java.util.Optional;
 import java.util.Scanner;
 
 public class Main {
-    private static final CustomerService customerService = new CustomerService();
-    private static final RoomService roomService = new RoomService();
-    private static final ReservationService reservationService = new ReservationService();
+    private static final DatabaseConfig dbConfig = DatabaseConfig.getInstance();
+    private static final RoomRepository roomRepository = new RoomRepository(dbConfig);
+    private static final ReservationRepository reservationRepository = new ReservationRepository(dbConfig);
+    private static final CustomerRepository customerRepository = new CustomerRepository(dbConfig);
+
+    private static final RoomService roomService = new RoomService(roomRepository);
+    private static final ReservationService reservationService = new ReservationService(reservationRepository, roomService);
+    private static final CustomerService customerService = new CustomerService(customerRepository);
+
     private static final Scanner scanner = new Scanner(System.in);
 
     public static void main(String[] args) {
         initializeRooms();
+        reservationService.updateReservationStatus();
+
         boolean exit = false;
         while (!exit) {
             showMenu();
@@ -46,12 +58,22 @@ public class Main {
                     displayStatistics();
                     break;
                 case 6:
+                    showAllReservations();
+                    break;
+                case 7:
+                    showUsersWithReservations();
+                    break;
+                case 8:
+                    showRoomsNotAvailable();
+                    break;
+                case 9:
                     exit = true;
                     System.out.println("Au revoir !");
                     break;
                 default:
                     System.out.println("Option invalide. Veuillez réessayer.");
             }
+
         }
     }
 
@@ -62,7 +84,10 @@ public class Main {
         System.out.println("3. Annuler une Réservation");
         System.out.println("4. Afficher les Détails d'une Réservation");
         System.out.println("5. Afficher les Statistiques");
-        System.out.println("6. Quitter");
+        System.out.println("6. Afficher Toutes les Réservations");
+        System.out.println("7. Afficher les Utilisateurs et leurs Réservations");
+        System.out.println("8. Afficher les Chambres Non Disponibles pour une Période");
+        System.out.println("9. Quitter");
     }
     private static void createReservation() {
         System.out.println("\n--- Créer une Nouvelle Réservation ---");
@@ -77,10 +102,10 @@ public class Main {
             String customerPhone = readString("Téléphone du client : ");
 
             customer = new Customer(customerId, customerName, customerEmail, customerPhone);
-            customerService.create(customer);  // Créer le client dans la base de données
+            customerService.create(customer);
             System.out.println("Nouveau client créé.");
         } else {
-            customer = existingCustomer.get();  // Utiliser le client existant
+            customer = existingCustomer.get();
         }
 
         int roomId = readInt("ID de la chambre : ");
@@ -118,8 +143,6 @@ public class Main {
             System.out.println("Erreur lors de la création de la réservation : " + e.getMessage());
         }
     }
-
-
     private static void modifyReservation() {
         System.out.println("\n--- Modifier une Réservation ---");
         int reservationId = readInt("ID de la réservation à modifier : ");
@@ -150,20 +173,23 @@ public class Main {
             System.out.println("Erreur lors de la modification de la réservation : " + e.getMessage());
         }
     }
-
     private static void cancelReservation() {
-        System.out.println("\n--- Annuler une Réservation ---");
-        int reservationId = readInt("ID de la réservation à annuler : ");
-        try {
-            reservationService.delete(reservationId);
+    System.out.println("\n--- Annuler une Réservation ---");
+    int reservationId = readInt("ID de la réservation à annuler : ");
+    try {
+        Optional<Reservation> optionalReservation = reservationService.findById(reservationId);
+        if (optionalReservation.isPresent()) {
+            Reservation reservation = optionalReservation.get();
+            reservation.setStatus(BookingStatus.CANCELLED);
+            reservationService.update(reservation);
             System.out.println("Réservation annulée avec succès.");
-//        } catch (ReservationNotFoundException e) {
-//            System.out.println(e.getMessage());
-        } catch (Exception e) {
-            System.out.println("Erreur lors de l'annulation de la réservation : " + e.getMessage());
+        } else {
+            System.out.println("Réservation non trouvée.");
         }
+    } catch (Exception e) {
+        System.out.println("Erreur lors de l'annulation de la réservation : " + e.getMessage());
     }
-
+}
     private static void displayReservationDetails() {
         System.out.println("\n--- Détails d'une Réservation ---");
         int reservationId = readInt("ID de la réservation : ");
@@ -173,6 +199,67 @@ public class Main {
         } else {
             System.out.println("Réservation non trouvée.");
         }
+    }
+    private static void showAllReservations() {
+        System.out.println("\n--- Toutes les Réservations ---");
+        List<Reservation> reservations = reservationService.getAll();
+        if (reservations.isEmpty()) {
+            System.out.println("Aucune réservation trouvée.");
+        } else {
+            for (Reservation reservation : reservations) {
+                System.out.println(reservation);
+            }
+        }
+    }
+    private static void showUsersWithReservations() {
+        System.out.println("\n--- Utilisateurs avec Réservations ---");
+        List<Customer> customers = customerService.getAll();
+        for (Customer customer : customers) {
+            System.out.println("Client : " + customer);
+            List<Reservation> reservations = reservationService.findReservationsByCustomerId(customer.getId());
+            if (reservations.isEmpty()) {
+                System.out.println("  Aucune réservation trouvée pour ce client.");
+            } else {
+                for (Reservation reservation : reservations) {
+                    System.out.println("  Réservation : " + reservation);
+                }
+            }
+        }
+    }
+    private static void showRoomsNotAvailable() {
+        System.out.println("\n--- Chambres Non Disponibles pour une Période ---");
+        String checkInStr = readString("Date d'arrivée (YYYY-MM-DD) : ");
+        String checkOutStr = readString("Date de départ (YYYY-MM-DD) : ");
+
+        LocalDate checkInDate;
+        LocalDate checkOutDate;
+
+        try {
+            checkInDate = LocalDate.parse(checkInStr);
+            checkOutDate = LocalDate.parse(checkOutStr);
+        } catch (Exception e) {
+            System.out.println("Format de date invalide.");
+            return;
+        }
+
+        List<Room> rooms = roomService.getAll();
+        boolean foundUnavailable = false;
+
+        for (Room room : rooms) {
+            boolean isAvailable = reservationService.isRoomAvailable(room.getId(), checkInDate, checkOutDate);
+            if (!isAvailable) {
+                System.out.println("Chambre non disponible : " + room);
+                foundUnavailable = true;
+            }
+        }
+
+        if (!foundUnavailable) {
+            System.out.println("Toutes les chambres sont disponibles pour la période donnée.");
+        }
+
+        // Pause pour l'utilisateur
+        System.out.println("Appuyez sur Entrée pour revenir au menu principal...");
+        new Scanner(System.in).nextLine();
     }
 
     private static void displayStatistics() {
@@ -185,7 +272,6 @@ public class Main {
         System.out.println("Revenus totaux : " + totalRevenue + "€");
         System.out.println("Nombre de réservations annulées : " + cancelledReservations);
     }
-
     private static int readInt(String prompt) {
         System.out.print(prompt);
         while (!scanner.hasNextInt()) {
@@ -196,13 +282,10 @@ public class Main {
         scanner.nextLine();
         return value;
     }
-
     private static String readString(String prompt) {
         System.out.print(prompt);
         return scanner.nextLine();
     }
-
-
     private static void initializeRooms() {
         Room room1 = new Room(1, RoomType.SIMPLE, 100.0, true);
         Room room2 = new Room(2, RoomType.DOUBLE, 150.0, true);
